@@ -27,11 +27,32 @@
 #include <vector>
 
 /* ---------------------------------------------------------------------------
-   Entities. Three separate structs. They share most of their fields but a
-   hero is not a monster and a monster is not a merchant, so three structs.
+   Build 3 entity hierarchy.
+
+   Combatant and Lootable are small capability interfaces. Both inherit
+   VIRTUALLY from Entity; Monster uses both. Every concrete entity also
+   names Entity directly as a virtual base so the relationship is explicit.
+   Virtual inheritance means only one Entity/Describable subobject exists.
+
+   Keep legacy public game fields for the Build 1/2 engine and save format.
+   Build 4 can migrate access behind interfaces without breaking old tests.
    --------------------------------------------------------------------------- */
 
-struct Hero {
+struct Entity {
+    virtual ~Entity() = default;
+    virtual std::string describe() const = 0;
+};
+
+struct Combatant : virtual Entity {
+    virtual int current_hp() const noexcept = 0;
+    virtual int maximum_hp() const noexcept = 0;
+};
+
+struct Lootable : virtual Entity {
+    virtual int loot_gold() const noexcept = 0;
+};
+
+struct Hero : virtual Entity, Combatant {
     char name[32];
     int  hp;
     int  max_hp;
@@ -41,9 +62,13 @@ struct Hero {
     int  xp;
     int  level;
     int  potions;
+
+    std::string describe() const override;
+    int current_hp() const noexcept override { return hp; }
+    int maximum_hp() const noexcept override { return max_hp; }
 };
 
-struct Monster {
+struct Monster : virtual Entity, Combatant, Lootable {
     char name[32];
     char species[24];
     int  hp;
@@ -54,15 +79,29 @@ struct Monster {
     int  ability_tag;
     int  is_dead;
     int  summon_budget;
+
+    std::string describe() const override;
+    int current_hp() const noexcept override { return hp; }
+    int maximum_hp() const noexcept override { return max_hp; }
+    int loot_gold() const noexcept override { return gold_drop; }
 };
 
-struct Merchant {
+struct Merchant : virtual Entity, Lootable {
     char name[32];
     int  gold;
     int  markup_percent;
     int  stock_tags[8];
     int  stock_count;
+
+    std::string describe() const override;
+    int loot_gold() const noexcept override { return gold; }
 };
+
+/* Build 3 dispatch: polymorphism works through an Entity reference. */
+void describe_entity(const Entity& entity);
+int combatant_hp(const Combatant& combatant);
+int lootable_gold(const Lootable& lootable);
+void describe_roster(const std::vector<const Entity*>& entities);
 
 /* ---------------------------------------------------------------------------
    THE OWNERSHIP MODEL.
