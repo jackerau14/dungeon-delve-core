@@ -128,9 +128,9 @@ inline Monster* raw(const std::shared_ptr<Monster>& p)     { return p.get(); }
 /* ---------------------------------------------------------------------------
    Ability tags.
 
-   Every ability in the game is an int. resolve_ability() switches on it.
-   Adding an ability means adding a tag here and a case in every switch that
-   looks at tags, and there are a few of those now.
+   These integer constants remain solely to read existing monster data and
+   support earlier tests. The Build 4 resolver uses virtual Ability::apply().
+   New abilities are registered by name instead of changing these constants.
    --------------------------------------------------------------------------- */
 
 #define ABIL_NONE    0
@@ -173,7 +173,7 @@ int apply_damage_to_hero(Hero& h, int incoming);
 int resolve_attack_on_monster(Hero& attacker, Monster& target);
 int resolve_attack_on_hero(Monster& attacker, Hero& target);
 
-/* Abilities. */
+/* Abilities. Legacy tags are accepted at the old API boundary only. */
 const char* ability_name(int tag);
 int resolve_ability(int tag, Monster& self, Hero& hero, Wave& wave, int verbose);
 

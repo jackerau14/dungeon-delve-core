@@ -67,18 +67,25 @@ endif()
 # ---------------------------------------------------------------------------
 # The engine, built twice.
 #
-# dd_engine is the engine compiled with DD_NO_MAIN so the tests can link it.
+# dd_engine is the engine compiled with DD_NO_MAIN so tests can link it.
+# The Build 4 object library ensures self-registering extension code is linked.
 # dungeon_delve is the playable program.
 #
 # Yes, compiling the same source file two different ways is an odd thing to
 # find in a codebase. Make a note of it for TRIAGE.md.
 # ---------------------------------------------------------------------------
-add_library(dd_engine STATIC src/dungeon_delve.cpp src/domain_types.cpp src/entity_hierarchy.cpp)
+# CONFIGURE_DEPENDS discovers future abilities without edits to existing files.
+file(GLOB DD_EXTENSION_ABILITIES CONFIGURE_DEPENDS src/abilities/*.cpp)
+set(DD_ABILITY_SOURCES src/ability_system.cpp ${DD_EXTENSION_ABILITIES})
+add_library(dd_ability_plugins OBJECT ${DD_EXTENSION_ABILITIES})
+target_include_directories(dd_ability_plugins PRIVATE include)
+add_library(dd_engine OBJECT src/dungeon_delve.cpp src/domain_types.cpp src/entity_hierarchy.cpp src/ability_system.cpp)
+target_sources(dd_engine PUBLIC $<TARGET_OBJECTS:dd_ability_plugins>)
 target_include_directories(dd_engine PUBLIC include)
 target_compile_definitions(dd_engine PRIVATE DD_NO_MAIN)
-target_link_libraries(dd_engine PUBLIC dd_sanitize_flags)
+target_link_libraries(dd_engine PUBLIC dd_sanitize_flags dd_ability_plugins)
 
-add_executable(dungeon_delve src/dungeon_delve.cpp src/entity_hierarchy.cpp)
+add_executable(dungeon_delve src/dungeon_delve.cpp src/entity_hierarchy.cpp src/ability_system.cpp $<TARGET_OBJECTS:dd_ability_plugins>)
 target_include_directories(dungeon_delve PRIVATE include)
 target_link_libraries(dungeon_delve PRIVATE dd_sanitize_flags)
 
@@ -141,3 +148,10 @@ target_link_libraries(build03_demo PRIVATE dd_engine)
 add_executable(build03_tests tests/build03.cpp)
 target_link_libraries(build03_tests PRIVATE dd_engine)
 add_test(NAME build03_entity_hierarchy COMMAND build03_tests)
+
+# Build 4: dispatch, extensions, inheritance and failure-handling tests.
+add_executable(build04_demo src/build04_demo.cpp)
+target_link_libraries(build04_demo PRIVATE dd_engine)
+add_executable(build04_tests tests/build04.cpp)
+target_link_libraries(build04_tests PRIVATE dd_engine)
+add_test(NAME build04_polymorphic_abilities COMMAND build04_tests)

@@ -10,12 +10,13 @@
      - split this file up
      - the loot thing is weird sometimes, look at it
      - save files break if you rename a hero, don't rename heroes
-     - do NOT touch resolve_ability(), it took forever to get right
+     - ability dispatch migrated to virtual methods in Build 4
 
    -- B.R.
    =========================================================================== */
 
 #include "dungeon_delve.h"
+#include "ability.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -88,26 +89,15 @@ static int LOOT_VALUE[LOOT_COUNT] = {
 };
 
 /* ---------------------------------------------------------------------------
-   Ability tags.
+   Backward compatibility.
 
-   Every ability in the game is an int. resolve_ability() switches on it.
-   Adding an ability means adding a tag here and a case in every switch that
-   looks at tags, and there are a few of those now.
+   Names for existing integer tags are retained for old data and tests.
+   Actual ability execution is polymorphic in Build 4.
    --------------------------------------------------------------------------- */
 
 const char* ability_name(int tag)
 {
-    switch (tag) {
-        case ABIL_NONE:   return "Flail";
-        case ABIL_CLEAVE: return "Cleave";
-        case ABIL_BITE:   return "Bite";
-        case ABIL_MEND:   return "Mend";
-        case ABIL_HEX:    return "Hex";
-        case ABIL_SUMMON: return "Summon";
-        case ABIL_GUARD:  return "Guard";
-        case ABIL_RALLY:  return "Rally";
-    }
-    return "???";
+    return legacy_ability_name(tag);
 }
 
 /* ---------------------------------------------------------------------------
@@ -245,112 +235,13 @@ int resolve_attack_on_hero(Monster& attacker, Hero& target)
     return apply_damage_to_hero(target, raw_damage);
 }
 
-/* ---------------------------------------------------------------------------
-   resolve_ability()
-
-   Legacy ability switch; keep changes here narrow during Build 1.
-   --------------------------------------------------------------------------- */
-
-int resolve_ability(int tag, Monster& self, Hero& hero,
-                    Wave& wave, int verbose)
+/* Compatibility boundary. Legacy integer tags are converted to polymorphic
+   objects here; every actual ability is executed through virtual apply(). */
+int resolve_ability(int tag, Monster& self, Hero& hero, Wave& wave, int verbose)
 {
-    int amount = 0;
-
-    switch (tag) {
-
-        case ABIL_NONE:
-            amount = resolve_attack_on_hero(self, hero);
-            if (verbose)
-                std::printf("  %s flails .................. %d damage\n",
-                            self.name, amount);
-            break;
-
-        case ABIL_CLEAVE:
-            amount = resolve_attack_on_hero(self, hero);
-            amount = amount + (amount / 2);
-            apply_damage_to_hero(hero, amount / 2);
-            if (verbose)
-                std::printf("  %s cleaves ................. %d damage\n",
-                            self.name, amount);
-            break;
-
-        case ABIL_BITE:
-            amount = resolve_attack_on_hero(self, hero);
-            if (dd_rand_range(1, 100) > 70) {
-                apply_damage_to_hero(hero, 2);
-                amount += 2;
-                if (verbose)
-                    std::printf("  %s bites deep ............. %d damage\n",
-                                self.name, amount);
-            } else {
-                if (verbose)
-                    std::printf("  %s bites ................... %d damage\n",
-                                self.name, amount);
-            }
-            break;
-
-        case ABIL_MEND:
-            amount = roll_dice(2, 4);
-            self.hp += amount;
-            if (self.hp > self.max_hp) self.hp = self.max_hp;
-            if (verbose)
-                std::printf("  %s mends ................... +%d HP\n",
-                            self.name, amount);
-            break;
-
-        case ABIL_HEX:
-            amount = roll_dice(1, 4);
-            hero.strength -= amount;
-            if (hero.strength < 1) hero.strength = 1;
-            if (verbose)
-                std::printf("  %s hexes ................... -%d STR\n",
-                            self.name, amount);
-            break;
-
-        case ABIL_SUMMON:
-            if (self.summon_budget > 0) {
-                self.summon_budget--;
-                MonsterPtr pup = make_monster("Whelp", "whelp", 6, 2, 0, 3, ABIL_NONE);
-                wave.push_back(std::move(pup));
-                amount = 1;
-                if (verbose)
-                    std::printf("  %s summons a Whelp!\n", self.name);
-            } else {
-                amount = resolve_attack_on_hero(self, hero);
-                if (verbose)
-                    std::printf("  %s is out of whelps ....... %d damage\n",
-                                self.name, amount);
-            }
-            break;
-
-        case ABIL_GUARD:
-            self.armor += 2;
-            amount = 2;
-            if (verbose)
-                std::printf("  %s guards .................. +2 armor\n",
-                            self.name);
-            break;
-
-        case ABIL_RALLY:
-            for (size_t i = 0; i < wave.size(); i++) {
-                if (!wave[i]->is_dead && raw(wave[i]) != &self)
-                    wave[i]->strength += 1;
-            }
-            amount = 1;
-            if (verbose)
-                std::printf("  %s rallies the pack ........ +1 STR each\n",
-                            self.name);
-            break;
-
-        default:
-            amount = resolve_attack_on_hero(self, hero);
-            if (verbose)
-                std::printf("  %s does something ......... %d damage\n",
-                            self.name, amount);
-            break;
-    }
-
-    return amount;
+    AbilityPtr ability = create_legacy_ability(tag);
+    AbilityContext context{self, hero, wave, verbose};
+    return apply_ability(*ability, context);
 }
 
 /* ---------------------------------------------------------------------------
@@ -438,7 +329,10 @@ int run_monster_round(Wave& wave, Hero& hero, int verbose,
         if (acted_names != nullptr)
             acted_names->push_back(std::string(m->name));
 
-        total += resolve_ability(m->ability_tag, *m, hero, wave, verbose);
+        // The engine still reads legacy save tags at the boundary, but dispatch is virtual.
+        AbilityPtr ability = create_legacy_ability(m->ability_tag);
+        AbilityContext context{*m, hero, wave, verbose};
+        total += apply_ability(*ability, context);
     }
 
     return total;
