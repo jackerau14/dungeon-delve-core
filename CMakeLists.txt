@@ -155,3 +155,14 @@ target_link_libraries(build04_demo PRIVATE dd_engine)
 add_executable(build04_tests tests/build04.cpp)
 target_link_libraries(build04_tests PRIVATE dd_engine)
 add_test(NAME build04_polymorphic_abilities COMMAND build04_tests)
+
+# Build 5: ordered bestiary, roster, species and template/adapter tests.
+add_executable(build05_demo src/build05_demo.cpp)
+target_link_libraries(build05_demo PRIVATE dd_engine)
+add_executable(build05_tests tests/build05.cpp)
+target_link_libraries(build05_tests PRIVATE dd_engine)
+add_test(NAME build05_data_layer COMMAND build05_tests)
+
+# Optional release benchmark; not part of the graded tests.
+add_executable(build05_benchmark tests/build05_benchmark.cpp)
+target_link_libraries(build05_benchmark PRIVATE dd_engine)

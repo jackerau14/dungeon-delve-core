@@ -22,6 +22,7 @@
 #ifndef DUNGEON_DELVE_H
 #define DUNGEON_DELVE_H
 
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -115,7 +116,7 @@ using HeroPtr     = std::unique_ptr<Hero>;
 using MerchantPtr = std::unique_ptr<Merchant>;
 
 using Wave     = std::vector<MonsterPtr>;
-using Bestiary = std::vector<MonsterPtr>;
+using Bestiary = std::map<std::string, MonsterPtr>; // ordered by species; O(log n) lookup
 
 /* Produces a plain non-owning Monster* from whatever MonsterPtr currently is.
    Use this when a function needs to hand back something to look at without

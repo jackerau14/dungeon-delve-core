@@ -250,35 +250,33 @@ int resolve_ability(int tag, Monster& self, Hero& hero, Wave& wave, int verbose)
 
 Monster* find_in_bestiary(Bestiary& bestiary, const char* species)
 {
-    for (size_t i = 0; i < bestiary.size(); i++) {
-        if (std::strcmp(bestiary[i]->species, species) == 0)
-            return raw(bestiary[i]);
-    }
-    return nullptr;
+    if (species == nullptr) return nullptr;
+    const auto it = bestiary.find(species); // ordered-tree lookup: O(log n)
+    return it == bestiary.end() ? nullptr : raw(it->second);
 }
 
 int count_species_in_bestiary(Bestiary& bestiary, const char* species)
 {
-    int n = 0;
-    for (size_t i = 0; i < bestiary.size(); i++) {
-        if (std::strcmp(bestiary[i]->species, species) == 0)
-            n++;
-    }
-    return n;
+    if (species == nullptr) return 0;
+    return static_cast<int>(bestiary.count(species)); // unique species keys
 }
 
 Bestiary build_bestiary()
 {
     Bestiary b;
-    b.push_back(make_monster("Kobold",      "kobold",    12,  4, 1,  6, ABIL_BITE));
-    b.push_back(make_monster("Goblin",      "goblin",    10,  3, 0,  5, ABIL_NONE));
-    b.push_back(make_monster("Cave Bat",    "bat",        5,  2, 0,  1, ABIL_BITE));
-    b.push_back(make_monster("Hex Adept",   "adept",     14,  3, 1, 11, ABIL_HEX));
-    b.push_back(make_monster("Bone Priest", "priest",    16,  4, 2, 14, ABIL_MEND));
-    b.push_back(make_monster("Warg",        "warg",      18,  6, 1, 10, ABIL_CLEAVE));
-    b.push_back(make_monster("Brood Mother","brood",     22,  5, 2, 18, ABIL_SUMMON));
-    b.push_back(make_monster("Shield Ogre", "ogre",      26,  7, 3, 21, ABIL_GUARD));
-    b.push_back(make_monster("Pack Leader", "packleader",20,  5, 1, 16, ABIL_RALLY));
+    auto add = [&b](MonsterPtr monster) {
+        std::string species = monster->species;
+        b.emplace(std::move(species), std::move(monster));
+    };
+    add(make_monster("Kobold",      "kobold",    12,  4, 1,  6, ABIL_BITE));
+    add(make_monster("Goblin",      "goblin",    10,  3, 0,  5, ABIL_NONE));
+    add(make_monster("Cave Bat",    "bat",        5,  2, 0,  1, ABIL_BITE));
+    add(make_monster("Hex Adept",   "adept",     14,  3, 1, 11, ABIL_HEX));
+    add(make_monster("Bone Priest", "priest",    16,  4, 2, 14, ABIL_MEND));
+    add(make_monster("Warg",        "warg",      18,  6, 1, 10, ABIL_CLEAVE));
+    add(make_monster("Brood Mother","brood",     22,  5, 2, 18, ABIL_SUMMON));
+    add(make_monster("Shield Ogre", "ogre",      26,  7, 3, 21, ABIL_GUARD));
+    add(make_monster("Pack Leader", "packleader",20,  5, 1, 16, ABIL_RALLY));
     return b;
 }
 
@@ -561,12 +559,13 @@ void print_wave(Wave& wave)
 void print_bestiary(Bestiary& bestiary)
 {
     std::printf("\nBestiary (%d entries):\n", (int)bestiary.size());
-    for (size_t i = 0; i < bestiary.size(); i++) {
+    for (const auto& [species, monster] : bestiary) {
+        (void)species;
         std::printf("  %-14s %-11s %3d HP  str %-2d  armor %-2d  gold %-3d  %s\n",
-                    bestiary[i]->name, bestiary[i]->species,
-                    bestiary[i]->max_hp, bestiary[i]->strength,
-                    bestiary[i]->armor, bestiary[i]->gold_drop,
-                    ability_name(bestiary[i]->ability_tag));
+                    monster->name, monster->species,
+                    monster->max_hp, monster->strength,
+                    monster->armor, monster->gold_drop,
+                    ability_name(monster->ability_tag));
     }
 }
 
