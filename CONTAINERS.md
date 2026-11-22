@@ -14,7 +14,16 @@
 
 ## Measured timings and Discussion 5
 
-**Discussion 5 timing results:** *Not included in the uploaded repository.* Replace this line with the actual values you personally measured in Discussion 5 before submitting, and say whether they changed your container choices. Do not claim that the benchmark below is your Discussion 5 experiment.
+**Discussion 5 timing results (measured on my computer):** I tested insertion of 100,000 unique integer keys, 100,000 successful lookups, and iteration over all elements. The experiment used Visual Studio 2022, MSVC 19.44 (x64), a Release build, and an HP Pavilion Gaming Desktop with an Intel Core i5-9400F at 2.90 GHz and 24 GB RAM on Windows. Vector and list lookups used `std::find`; set and map lookups used their member `find`. Measurements are in milliseconds from this run.
+
+| Container | Insert (ms) | Find (ms) | Iterate (ms) |
+|---|---:|---:|---:|
+| `std::vector` | 0.507 | 324.213 | 0.034 |
+| `std::list` | 4.226 | 22,906.878 | 0.303 |
+| `std::set` | 33.950 | 24.953 | 3.519 |
+| `std::map` | 27.538 | 28.613 | 1.873 |
+
+**Did the results change my choices?** No. The vector was fastest at insertion and iteration, supporting its use for a small roster that is displayed and sorted. The map and set had much faster key lookup than a linear vector scan in this 100,000-element experiment, supporting the bestiary and unique-species use cases. List search was especially slow despite sharing O(n) search complexity with vector; pointer-based node traversal and cache locality are plausible explanations. These timings do not prove a map is always faster: my separate nine-species benchmark below actually favors vector linear search. I would repeat the measurements under matching workloads before choosing based on speed alone.
 
 **Separate, reproducible Build 5 benchmark (performed here):** A Release C++20 executable (`build05_benchmark`) compared 1,000,000 repeated lookups against nine bestiary species, including missing keys. On this Linux environment in one run, vector linear search averaged **17.25 ns/query**, while `std::map` averaged **20.53 ns/query**. These results are implementation- and machine-specific; a tiny fixed set can favor a vector because of lower overhead and cache locality. The timings did **not** change the map choice for the assignment: the index is useful for a scalable species-key lookup contract, but the result shows it is not automatically faster for nine entries. To reproduce locally, use a Release preset and run `build05_benchmark` (never benchmark a Debug build).
 
